@@ -123,17 +123,17 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
   String _stateLabel(TripState s) {
     switch (s) {
       case TripState.notStarted:
-        return 'Not Started';
+        return 'Ready to Start';
       case TripState.started:
-        return 'On the way to Restaurant';
+        return 'Heading to Restaurant';
       case TripState.arrivedRestaurant:
-        return 'At Restaurant';
+        return 'Arrived at Restaurant';
       case TripState.pickedUp:
-        return 'Picked Up';
+        return 'Order Picked Up';
       case TripState.arrivedCustomer:
-        return 'At Customer';
+        return 'Arrived at Customer';
       case TripState.delivered:
-        return 'Delivered';
+        return 'Order Delivered';
     }
   }
 
@@ -159,13 +159,19 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
         _state = TripState.started;
         _isLoading = false;
       });
-      _showSnack('Trip started! Navigate to restaurant.', isSuccess: true);
+      _showSnack(
+        '🚀 Trip started! Navigate to ${widget.order.restaurantName}.',
+        isSuccess: true,
+      );
     }
   }
 
   Future<void> _arrivedAtRestaurant() async {
     if (_currentPosition == null) {
-      _showSnack('Location not available. Please wait...', isError: true);
+      _showSnack(
+        'Location not available. Please wait for GPS signal...',
+        isError: true,
+      );
       return;
     }
 
@@ -191,13 +197,14 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
           _isLoading = false;
         });
         _showSnack(
-          'Arrived at restaurant! Please collect the order.',
+          '✅ Arrived at ${widget.order.restaurantName}! Please collect the order.',
           isSuccess: true,
         );
       }
     } else {
+      final distance = _distanceToRestaurant?.toStringAsFixed(0) ?? 'unknown';
       _showSnack(
-        'You are ${_distanceToRestaurant?.toStringAsFixed(0) ?? '?'}m away from restaurant. Please get closer.',
+        '📍 You are ${distance}m away from ${widget.order.restaurantName}. Please get closer to confirm arrival.',
         isError: true,
       );
     }
@@ -205,29 +212,42 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
 
   Future<void> _pickedUp() async {
     if (_state == TripState.arrivedRestaurant) {
-      setState(() {
-        _isLoading = true;
-      });
+      final confirmed = await _showConfirmationDialog(
+        title: 'Confirm Pickup',
+        message:
+            'Have you successfully picked up the order from ${widget.order.restaurantName}?',
+        confirmText: 'Yes, Picked Up',
+        icon: Icons.shopping_bag,
+      );
 
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      if (mounted) {
+      if (confirmed == true) {
         setState(() {
-          _state = TripState.pickedUp;
-          _isLoading = false;
+          _isLoading = true;
         });
-        _showSnack(
-          'Order ${widget.order.id} picked up! Navigate to customer.',
-          isSuccess: true,
-        );
+
+        // Simulate API call
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (mounted) {
+          setState(() {
+            _state = TripState.pickedUp;
+            _isLoading = false;
+          });
+          _showSnack(
+            'Order ${widget.order.id} picked up! Navigate to customer.',
+            isSuccess: true,
+          );
+        }
       }
     }
   }
 
   Future<void> _arrivedAtCustomer() async {
     if (_currentPosition == null) {
-      _showSnack('Location not available. Please wait...', isError: true);
+      _showSnack(
+        'Location not available. Please wait for GPS signal...',
+        isError: true,
+      );
       return;
     }
 
@@ -253,13 +273,14 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
           _isLoading = false;
         });
         _showSnack(
-          'Arrived at customer location! Please deliver the order.',
+          '✅ Arrived at ${widget.order.customerName}\'s location! Please deliver the order.',
           isSuccess: true,
         );
       }
     } else {
+      final distance = _distanceToCustomer?.toStringAsFixed(0) ?? 'unknown';
       _showSnack(
-        'You are ${_distanceToCustomer?.toStringAsFixed(0) ?? '?'}m away from customer. Please get closer.',
+        '📍 You are ${distance}m away from ${widget.order.customerName}. Please get closer to confirm arrival.',
         isError: true,
       );
     }
@@ -267,27 +288,72 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
 
   Future<void> _delivered() async {
     if (_state == TripState.arrivedCustomer) {
-      setState(() {
-        _isLoading = true;
-      });
+      final confirmed = await _showConfirmationDialog(
+        title: 'Confirm Delivery',
+        message:
+            'Have you successfully delivered the order to ${widget.order.customerName}?',
+        confirmText: 'Yes, Delivered',
+        icon: Icons.check_circle,
+      );
 
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 800));
-
-      if (mounted) {
+      if (confirmed == true) {
         setState(() {
-          _state = TripState.delivered;
-          _isLoading = false;
+          _isLoading = true;
         });
 
-        final repo = context.read<OrderRepository>();
-        repo.addDelivered(widget.order);
-        _showSnack(
-          'Order ${widget.order.id} delivered successfully! 🎉',
-          isSuccess: true,
-        );
+        // Simulate API call
+        await Future.delayed(const Duration(milliseconds: 800));
+
+        if (mounted) {
+          setState(() {
+            _state = TripState.delivered;
+            _isLoading = false;
+          });
+
+          final repo = context.read<OrderRepository>();
+          repo.addDelivered(widget.order);
+          _showSnack(
+            'Order ${widget.order.id} delivered successfully! 🎉',
+            isSuccess: true,
+          );
+        }
       }
     }
+  }
+
+  Future<bool?> _showConfirmationDialog({
+    required String title,
+    required String message,
+    required String confirmText,
+    required IconData icon,
+  }) async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+        ),
+        title: Row(
+          children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title)),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(confirmText),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSnack(String msg, {bool isSuccess = false, bool isError = false}) {
@@ -339,15 +405,15 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
   String _nextLabel() {
     switch (_state) {
       case TripState.notStarted:
-        return 'Start Trip';
+        return 'Start Delivery Trip';
       case TripState.started:
-        return 'Arrived at Restaurant';
+        return 'I Arrived at Restaurant';
       case TripState.arrivedRestaurant:
-        return 'Picked Up';
+        return 'Picked Up Order';
       case TripState.pickedUp:
-        return 'Arrived at Customer';
+        return 'I Arrived at Customer';
       case TripState.arrivedCustomer:
-        return 'Delivered';
+        return 'Order Delivered';
       case TripState.delivered:
         return 'Completed';
     }
@@ -611,7 +677,7 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
                 ),
                 _buildProgressStep(
                   context,
-                  'Restaurant',
+                  'Arrived',
                   TripState.arrivedRestaurant,
                   1,
                 ),
@@ -619,14 +685,14 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
                   context,
                   _state.index >= TripState.arrivedRestaurant.index,
                 ),
-                _buildProgressStep(context, 'Picked', TripState.pickedUp, 2),
+                _buildProgressStep(context, 'Picked Up', TripState.pickedUp, 2),
                 _buildProgressLine(
                   context,
                   _state.index >= TripState.pickedUp.index,
                 ),
                 _buildProgressStep(
                   context,
-                  'Customer',
+                  'At Customer',
                   TripState.arrivedCustomer,
                   3,
                 ),
@@ -634,7 +700,12 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
                   context,
                   _state.index >= TripState.arrivedCustomer.index,
                 ),
-                _buildProgressStep(context, 'Done', TripState.delivered, 4),
+                _buildProgressStep(
+                  context,
+                  'Delivered',
+                  TripState.delivered,
+                  4,
+                ),
               ],
             ),
           ],
@@ -1021,35 +1092,5 @@ class _AssignedOrderScreenState extends State<AssignedOrderScreen> {
       case TripState.delivered:
         return AppTheme.successColor;
     }
-  }
-}
-
-class _StepChip extends StatelessWidget {
-  final String label;
-  final bool active;
-  const _StepChip({required this.label, required this.active});
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      label: Text(
-        label,
-        style: TextStyle(
-          color: active
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-          fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-        ),
-      ),
-      backgroundColor: active
-          ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
-          : Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
-      side: active
-          ? BorderSide(color: Theme.of(context).colorScheme.primary)
-          : BorderSide(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
-            ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-    );
   }
 }
