@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/assigned_order_screen.dart';
 import 'screens/order_history_screen.dart';
 import 'models/order.dart';
 import 'services/order_repository.dart';
+import 'theme/app_theme.dart';
+import 'constants/app_constants.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Set system UI overlay style
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+
   runApp(const DriverApp());
 }
 
@@ -18,12 +33,8 @@ class DriverApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => OrderRepository(),
       child: MaterialApp(
-        title: 'Driver App',
-        theme: ThemeData(
-          useMaterial3: true,
-          colorSchemeSeed: Colors.blue,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-        ),
+        title: AppConstants.appName,
+        theme: AppTheme.lightTheme,
         initialRoute: '/',
         routes: {
           '/': (context) => const LoginScreen(),
@@ -42,6 +53,16 @@ class DriverApp extends StatelessWidget {
           '/history': (context) => const OrderHistoryScreen(),
         },
         debugShowCheckedModeBanner: false,
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(
+                MediaQuery.of(context).textScaler.scale(1.0).clamp(0.8, 1.2),
+              ),
+            ),
+            child: child!,
+          );
+        },
       ),
     );
   }
